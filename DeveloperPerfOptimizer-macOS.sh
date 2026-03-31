@@ -101,20 +101,31 @@ optimize_vs_code() {
         return
     fi
     
-    # Apply VS Code optimizations
-    # Note: This is a simplified approach; full implementation would use jq for JSON manipulation
+    # Apply VS Code optimizations using jq for safe JSON manipulation
     log "Configuring VS Code for optimal performance"
     
-    # Basic optimization settings (in real implementation, would use jq)
-    cat >> "$VS_CODE_SETTINGS" << 'EOF'
-
-    // DevPerf Optimizations
-    "typescript.tsserver.maxTsServerMemory": 2048,
-    "python.linting.maxNumberOfProblems": 50,
-    "editor.wordBasedSuggestions": false,
-EOF
-    
-    success "VS Code settings optimized"
+    if command -v jq > /dev/null; then
+        # Use jq to safely modify JSON without breaking formatting
+        jq_filter='
+            .["typescript.tsserver.maxTsServerMemory"] = 2048 |
+            .["python.linting.maxNumberOfProblems"] = 50 |
+            .["editor.wordBasedSuggestions"] = false |
+            .["files.watcherExclude"] = {
+                "**/node_modules/**": true,
+                "**/.git/**": true,
+                "**/venv/**": true,
+                "**/__pycache__/**": true
+            } |
+            .["telemetry.telemetryLevel"] = "off"
+        '
+        
+        jq "$jq_filter" "$VS_CODE_SETTINGS" > "${VS_CODE_SETTINGS}.tmp"
+        mv "${VS_CODE_SETTINGS}.tmp" "$VS_CODE_SETTINGS"
+        success "VS Code settings optimized with jq (safe JSON)"
+    else
+        warning "jq not installed, skipping VS Code optimization"
+        log "To install jq: brew install jq"
+    fi
 }
 
 # Phase 2: Power Management
